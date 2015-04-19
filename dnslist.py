@@ -75,13 +75,14 @@ def worker(q, space, dnslist):
         ip = q.get()
         r = is_listed(ip, dnslist)
         if r != False:
-            logging.warning('space="%s" bl=%s host=%s a=%s txt="%s"' % (
-                space,
-                dnslist,
-                ip,
-                r[0],
-                r[1].replace('\n', ' - ').replace('"', ''),
-            ))
+            # Message was already passed as the format of the logging configuration
+            logging.warning('', extra={
+                                       'space': space,
+                                       'list': dnslist,
+                                       'ip': ip,
+                                       'a': r[0].replace('\n', ','),
+                                       'txt': r[1].replace('\n', ' - ').replace('"', ''),
+                                      })
             print('LISTED', dnslist, ip, r[0], r[1].replace('\n', ' - ').replace('"', ''))
         else:
             print('OK', dnslist, ip)
@@ -89,6 +90,18 @@ def worker(q, space, dnslist):
 
 if __name__ == '__main__':
     import argparse
+
+    # Check if format argument uses invalid keywords
+    def fmt(s):
+        import string
+        FMT_KEYS = ('ip', 'list', 'space', 'a', 'txt')
+        for t in string.Formatter().parse(s):
+            if t[1] is not None and t[1] not in FMT_KEYS:
+                raise argparse.ArgumentTypeError(
+                    '"%s" is an invalid format keyword. Must be %s' % (t[1], ', '.join(FMT_KEYS))
+                )
+
+        return s
 
     parser = argparse.ArgumentParser()
     parser.add_argument('ip_file', help='File containing a list of IPv4 networks')
@@ -99,11 +112,18 @@ if __name__ == '__main__':
                         help='Check if the configured DNSxLs are active')
     parser.add_argument('-o', '--log-file', metavar='LOGFILE', default='dnslist.log',
                         help='Specify a configuration file. Default: dnslist.log')
+    parser.add_argument('-f', '--format', metavar='FORMAT', type=fmt, default='{ip} is listed on {list}: a={a} txt="{txt}"',
+                        help='Specify the output format for listed IPs. The\
+                               available variables are {ip}: the listed IP, {list}:\
+                               The list the IP is listed on, {a}: The answer for the\
+                               DNS A query from the list. {txt}: The answer for the\
+                               DNS TXT query from the list.')
     args = parser.parse_args()
 
     logging.basicConfig(
         filename=args.log_file,
-        format='[%(asctime)s] %(message)s',
+        format=args.format,
+        style='{',
         level=logging.WARNING,
     )
 
