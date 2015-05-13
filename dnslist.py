@@ -65,7 +65,7 @@ import ipaddress
 import threading
 import queue
 
-def worker(q, space, dnslist):
+def worker(q, dnslist):
     """
     Check if every IP from the queue is on the DNSxL, if so, log it
     """
@@ -77,7 +77,6 @@ def worker(q, space, dnslist):
         if r != False:
             # Message was already passed as the format of the logging configuration
             logging.warning('', extra={
-                                       'space': space,
                                        'list': dnslist,
                                        'ip': ip,
                                        'a': r[0].replace('\n', ','),
@@ -94,7 +93,7 @@ if __name__ == '__main__':
     # Check if format argument uses invalid keywords
     def fmt(s):
         import string
-        FMT_KEYS = ('ip', 'list', 'space', 'a', 'txt')
+        FMT_KEYS = ('ip', 'list', 'a', 'txt')
         for t in string.Formatter().parse(s):
             if t[1] is not None and t[1] not in FMT_KEYS:
                 raise argparse.ArgumentTypeError(
@@ -105,7 +104,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('ip_file', help='File containing a list of IPv4 networks')
-    parser.add_argument('space', help='Name used in the log file')
     parser.add_argument('-c', '--config-file', metavar='CONFIGFILE', default='dnslist.conf',
                         help='Specify a configuration file. Default: dnslist.conf')
     parser.add_argument('-k', '--not-check-list', action='store_true',
@@ -146,7 +144,7 @@ if __name__ == '__main__':
 
         # One thread for each DNSxL, there will not be parallel queries for
         # the same DNSxL
-        t = threading.Thread(target=worker, args=(q, args.space, l))
+        t = threading.Thread(target=worker, args=(q, l))
         t.start()
         threads.append(t)
 
